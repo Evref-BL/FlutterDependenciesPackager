@@ -3,10 +3,19 @@ Class {
 	#superclass : #Object,
 	#instVars : [
 		'lock2json',
-		'tempFolder'
+		'tempFolder',
+		'pathPubCache'
 	],
 	#category : #FlutterDependenciesPackager
 }
+
+{ #category : #'as yet unclassified' }
+DependenciesResolver class >> initWithPath: aString [
+	|dr| 
+	dr := DependenciesResolver new. 
+	dr pathPubCache: aString.
+	^dr 
+]
 
 { #category : #'as yet unclassified' }
 DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJson: aDictionnary [
@@ -34,12 +43,10 @@ DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 
 	aFlutterPackage childrenDep do: [ :child | 
 		| path |
-		path := FileLocator home
-		        /
-		        ('.pub-cache/hosted/pub.dartlang.org/'
-		         , child exportPackageName).
+		path := FileLocator C / pathPubCache / child exportPackageName.
 
-		
+
+
 
 		child initFromPath: path.
 		self exploreDirectDependencies: child ]
@@ -50,7 +57,6 @@ DependenciesResolver >> exploreFromAPackage: aPathasString [
 
 	| pkg |
 	"create a new package instance"
-
 	pkg := FlutterPackage new.
 	pkg initMainPackageFromPath: aPathasString.
 
@@ -60,10 +66,7 @@ DependenciesResolver >> exploreFromAPackage: aPathasString [
 
 	pkg childrenDep do: [ :child | 
 		| path |
-		path := FileLocator home
-		        /
-		        ('.pub-cache/hosted/pub.dartlang.org/'
-		         , child exportPackageName).
+		path := FileLocator C / pathPubCache / child exportPackageName.
 
 		path copyAllTo: tempFolder / child exportPackageName.
 
@@ -96,8 +99,16 @@ DependenciesResolver >> explorePackage: aPathasString [
 { #category : #'as yet unclassified' }
 DependenciesResolver >> initialize [
 
+
 	tempFolder := FileLocator home / 'PACKAGES/'.
 	tempFolder ensureCreateDirectory.
-"	tempFolder := (FileLocator home / 'outputParserDart') asFileReference."
-	tempFolder children do: [ :f | f deleteAll ]
+	"	tempFolder := (FileLocator home / 'outputParserDart') asFileReference."
+	tempFolder children do: [ :f | f deleteAll ].
+	pathPubCache := ''
+]
+
+{ #category : #'as yet unclassified' }
+DependenciesResolver >> pathPubCache: aPath [
+
+	pathPubCache := aPath
 ]
