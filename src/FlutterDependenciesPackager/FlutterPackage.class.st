@@ -208,6 +208,11 @@ FlutterPackage >> pubpspecYamlFileLocator [
 	^ path2Yaml
 ]
 
+{ #category : #getter }
+FlutterPackage >> source [
+	^ source
+]
+
 { #category : #setter }
 FlutterPackage >> source: aString [ 
 	source := aString

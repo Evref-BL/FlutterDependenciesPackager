@@ -23,7 +23,7 @@ BaselineOfFlutterDependenciesPackager >> defineDependencies: spec [
 		baseline: 'MermaidPharo'
 		with: [ spec repository: 'github://badetitou/MermaidPharo' ];
 		baseline: 'yaml2json'
-		with: [ spec repository: 'github:///Evref-BL/yaml2json' ]
+		with: [ spec repository: 'github://Evref-BL/yaml2json' ]
 ]
 
 { #category : #baselines }
