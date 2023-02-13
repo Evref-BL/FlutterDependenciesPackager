@@ -68,23 +68,6 @@ FlutterPackage >> exportPackageName [
 ]
 
 { #category : #'as yet unclassified' }
-FlutterPackage >> getInfoFromPubspecYaml: aFileReference [
-
-	"return the FileLocator of the pubspec.yaml file in this current package"
-
-	| y2j json |
-	y2j := Yaml2Json new.
-	json := STONJSON fromString:
-		        (y2j convertPubSpecYamlToJson: aFileReference contents).
-	"official name of the package"
-	self name: (json at: 'name').
-	"get the direct dependencies (direct main) "
-	self childrenDep:
-		((json at: 'dependencies' ifAbsent: Dictionary new) keys collect: [ :k | 
-			 FlutterPackage withName: k withParent: self ])
-]
-
-{ #category : #'as yet unclassified' }
 FlutterPackage >> getInfoFromPubspecYaml: aFileReference withDevDependencies: aBoolean [
 
 	"return the FileLocator of the pubspec.yaml file in this current package"
@@ -123,28 +106,28 @@ FlutterPackage >> getJsonFromPubspecLock: aFileReference [
 { #category : #initialize }
 FlutterPackage >> initFromPath: aFileLocator [
 
-	self path: aFileLocator.
+	self path: aFileLocator asFileReference.
 	pubspecyaml := self pubpspecYamlFileLocator.
 
-	self getInfoFromPubspecYaml: pubspecyaml
+	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: false
 ]
 
 { #category : #initialize }
 FlutterPackage >> initMainPackageFromPath: aFileLocator [
 
-	self path: aFileLocator.
+	self path: aFileLocator asFileReference.
 	pubspecyaml := self pubpspecYamlFileLocator.
 
-	self getInfoFromPubspecYaml: pubspecyaml  withDevDependencies: true.
+	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: true
 ]
 
 { #category : #initialization }
 FlutterPackage >> initialize [
 
 	name := String new.
-	path := FileLocator new.
+	path := FileReference new.
 	childrenDep := Set new.
-	parentalDep := Set  new
+	parentalDep := Set new
 ]
 
 { #category : #getter }
@@ -168,8 +151,9 @@ FlutterPackage >> path [
 ]
 
 { #category : #setter }
-FlutterPackage >> path: aFileLocator [ 
-	path := aFileLocator
+FlutterPackage >> path: aFileReference [
+
+	path := aFileReference asFileReference
 ]
 
 { #category : #setter }
