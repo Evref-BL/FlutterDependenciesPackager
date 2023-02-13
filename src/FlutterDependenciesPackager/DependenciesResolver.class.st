@@ -3,18 +3,21 @@ Class {
 	#superclass : #Object,
 	#instVars : [
 		'lock2json',
-		'tempFolder',
-		'pathPubCache'
+		'pkgExportedFolder',
+		'pathPubCache',
+		'originPkg'
 	],
 	#category : #FlutterDependenciesPackager
 }
 
 { #category : #'as yet unclassified' }
-DependenciesResolver class >> initWithPath: aString [
-	|dr| 
-	dr := DependenciesResolver new. 
-	dr pathPubCache: aString.
-	^dr 
+DependenciesResolver class >> initWithPackagePath: packagePath andPubcachePath: pubspecPath [
+
+	| dr |
+	dr := DependenciesResolver new.
+	dr pathPubCache: pubspecPath.
+	dr originPkg: packagePath.
+	^ dr
 ]
 
 { #category : #'as yet unclassified' }
@@ -42,35 +45,42 @@ DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
 
 	aFlutterPackage childrenDep do: [ :child | 
-		| path |
-		path := FileLocator C / pathPubCache / child exportPackageName.
+		| pkgPath exportPath|
+		pkgPath := FileLocator C / pathPubCache / child exportPackageName.
+			exportPath := (pkgExportedFolder / child exportPackageName).
+		  exportPath exists ifFalse: [ 
+			pkgPath copyAllTo: exportPath ].
 
 
 
-
-		child initFromPath: path.
+		child initFromPath: pkgPath.
 		self exploreDirectDependencies: child ]
 ]
 
 { #category : #'as yet unclassified' }
-DependenciesResolver >> exploreFromAPackage: aPathasString [
+DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 
 	| pkg |
+	
 	"create a new package instance"
 	pkg := FlutterPackage new.
-	pkg initMainPackageFromPath: aPathasString.
+	pkg initMainPackageFromPath: packageAsFileLocator.
 
 	"because this package is the entry point, get its pubspec.lock as Json"
 	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
 	self collectDependenciesOf: pkg fromLockJson: lock2json.
 
 	pkg childrenDep do: [ :child | 
-		| path |
-		path := FileLocator C / pathPubCache / child exportPackageName.
+		| pkgPath exportPath | 
+	
+		pkgPath := FileLocator C / pathPubCache / child exportPackageName.
+	
+		exportPath := (pkgExportedFolder / child exportPackageName).
+		  exportPath exists ifFalse: [ 
+			pkgPath copyAllTo: exportPath ].
 
-		path copyAllTo: tempFolder / child exportPackageName.
-
-		child initFromPath: path.
+		
+		child initFromPath: pkgPath.
 		self exploreDirectDependencies: child ].
 
 	^ pkg
@@ -99,12 +109,21 @@ DependenciesResolver >> explorePackage: aPathasString [
 { #category : #'as yet unclassified' }
 DependenciesResolver >> initialize [
 
-
-	tempFolder := FileLocator home / 'PACKAGES/'.
-	tempFolder ensureCreateDirectory.
+	pkgExportedFolder := FileLocator home / 'PACKAGES/'.
+	pkgExportedFolder ensureCreateDirectory.
 	"	tempFolder := (FileLocator home / 'outputParserDart') asFileReference."
-	tempFolder children do: [ :f | f deleteAll ].
+	pkgExportedFolder children do: [ :f | f deleteAll ].
 	pathPubCache := ''
+]
+
+{ #category : #getter }
+DependenciesResolver >> originPkg [
+	^ originPkg
+]
+
+{ #category : #setter }
+DependenciesResolver >> originPkg: aFileLocator [ 
+	originPkg := aFileLocator
 ]
 
 { #category : #'as yet unclassified' }
