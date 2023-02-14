@@ -7,12 +7,20 @@ Class {
 		'path',
 		'source',
 		'childrenDep',
-		'parentalDep',
-		'pubspecyaml',
-		'pubspeclock'
+		'parentalDep'
 	],
 	#category : #FlutterDependenciesPackager
 }
+
+{ #category : #initialize }
+FlutterPackage class >> initWithPath: aFileReference [
+
+	| aPackage |
+	aPackage := FlutterPackage new.
+	aPackage path: aFileReference asFileReference. 
+	aPackage extractNameFromPubSpec.
+	^ aPackage
+]
 
 { #category : #initialize }
 FlutterPackage class >> withName: aString [
@@ -43,6 +51,12 @@ FlutterPackage >> = otherFlutterPackage [
 ]
 
 { #category : #setter }
+FlutterPackage >> addParentalDep: aFlutterPackage [
+
+	parentalDep add: aFlutterPackage .
+]
+
+{ #category : #setter }
 FlutterPackage >> asString [
 
 	"name-version"
@@ -67,27 +81,59 @@ FlutterPackage >> exportPackageName [
 	version isNil ifTrue: [ ^ name ] ifFalse: [ ^ name, '-', version ]. 
 ]
 
+{ #category : #extraction }
+FlutterPackage >> extractNameFromPubSpec [
+
+		| y2j json dependencies |
+	dependencies := OrderedCollection new.
+
+	"convert pubspec.yaml to json (Dictionnary)"
+	y2j := Yaml2Json new.
+	json := STONJSON fromString:
+		        (y2j convertPubSpecYamlToJson: self pubspecyaml contents).
+
+	"get official name of the package"
+	self name: (json at: 'name').
+]
+
 { #category : #'as yet unclassified' }
 FlutterPackage >> getInfoFromPubspecYaml: aFileReference withDevDependencies: aBoolean [
 
-	"return the FileLocator of the pubspec.yaml file in this current package"
+	"extract dependencency and info from a pubspec.yaml concerning a specific package"
 
 	| y2j json dependencies |
+	self
+		deprecated: 'Use analysePubspecYaml:withDevDependencies: in DependenciesResolver instead  instead'
+		on: '14 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
+
 	dependencies := OrderedCollection new.
+
+	"convert pubspec.yaml to json (Dictionnary)"
 	y2j := Yaml2Json new.
 	json := STONJSON fromString:
 		        (y2j convertPubSpecYamlToJson: aFileReference contents).
-	"official name of the package"
+
+	"get official name of the package"
 	self name: (json at: 'name').
+
 	"get the direct dependencies (direct main) "
 	dependencies := (json at: 'dependencies' ifAbsent: Dictionary new)
 		                keys collect: [ :k | 
 		                FlutterPackage withName: k withParent: self ].
+
+	"if necessary, get the dev dependencies"
 	aBoolean ifTrue: [ 
-		dependencies := dependencies ,
-			((json at: 'dev_dependencies' ifAbsent: Dictionary new) keys 
-				 collect: [ :k | FlutterPackage withName: k withParent: self ])
-				asOrderedCollection ].
+		dependencies := dependencies
+		                ,
+			                ((json
+				                  at: 'dev_dependencies'
+				                  ifAbsent: Dictionary new) keys collect: [ :k | 
+				                 FlutterPackage withName: k withParent: self ])
+				                asOrderedCollection ].
+
+	"store all dependencies"
 	self childrenDep: dependencies asOrderedCollection
 ]
 
@@ -106,19 +152,33 @@ FlutterPackage >> getJsonFromPubspecLock: aFileReference [
 { #category : #initialize }
 FlutterPackage >> initFromPath: aFileLocator [
 
-	self path: aFileLocator asFileReference.
-	pubspecyaml := self pubpspecYamlFileLocator.
+	self
+		deprecated: 'Use #initWithPath instead'
+		on: '14 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 
-	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: false
+	self path: aFileLocator asFileReference.
+
+	self
+		getInfoFromPubspecYaml: self pubspecyaml
+		withDevDependencies: false
 ]
 
 { #category : #initialize }
 FlutterPackage >> initMainPackageFromPath: aFileLocator [
 
-	self path: aFileLocator asFileReference.
-	pubspecyaml := self pubpspecYamlFileLocator.
+		self
+		deprecated: 'Use #initWithPath instead'
+		on: '14 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 
-	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: true
+	self path: aFileLocator asFileReference.
+
+	self
+		getInfoFromPubspecYaml: self pubspecyaml
+		withDevDependencies: true
 ]
 
 { #category : #initialization }
@@ -138,11 +198,6 @@ FlutterPackage >> name [
 { #category : #setter }
 FlutterPackage >> name: aString [ 
 	name := aString
-]
-
-{ #category : #setter }
-FlutterPackage >> parentalDep: aFlutterPackage [ 
-	parentalDep := aFlutterPackage
 ]
 
 { #category : #setter }
@@ -190,6 +245,17 @@ FlutterPackage >> pubpspecYamlFileLocator [
 		ifFalse: [ 
 		Exception signal: 'The path does not contain any pubspec.yaml file' ].
 	^ path2Yaml
+]
+
+{ #category : #'as yet unclassified' }
+FlutterPackage >> pubspeclock [
+
+	^ self pubpspecLockFileLocator 
+]
+
+{ #category : #'as yet unclassified' }
+FlutterPackage >> pubspecyaml [
+	^ self pubpspecYamlFileLocator 
 ]
 
 { #category : #getter }

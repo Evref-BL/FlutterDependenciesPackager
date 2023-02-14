@@ -6,6 +6,9 @@ Class {
 		'packages',
 		'flowGraph'
 	],
+	#classVars : [
+		'packagesV2'
+	],
 	#category : #FlutterDependenciesPackager
 }
 

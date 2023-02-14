@@ -5,12 +5,13 @@ Class {
 		'lock2json',
 		'pkgExportedFolder',
 		'pathPubCache',
-		'originPkg'
+		'exportPkg',
+		'dicoPackages'
 	],
 	#category : #FlutterDependenciesPackager
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : #initialize }
 DependenciesResolver class >> initWithPackagePath: packageFolder andPubcachePath: pubspecFolder [
 
 	"
@@ -27,14 +28,19 @@ DependenciesResolver class >> initWithPackagePath: packageFolder andPubcachePath
 	"
 
 	| dr exportTo pkgName pkgRef pubspecRef |
+	dr := DependenciesResolver new.
+	dr dicoPackages: Dictionary new.
+
 	pkgRef := packageFolder asFileReference.
 	pubspecRef := pubspecFolder asFileReference.
 
 	pkgName := pkgRef path at: pkgRef path size.
 
-	dr := DependenciesResolver new.
+
+
 	exportTo := FileLocator home / 'PACKAGES' / pkgName.
 	exportTo ensureCreateDirectory.
+	dr exportPkg: exportTo.
 	exportTo children do: [ :f | f deleteAll ].
 
 	pkgRef copyAllTo: exportTo.
@@ -47,28 +53,68 @@ DependenciesResolver class >> initWithPackagePath: packageFolder andPubcachePath
 
 
 	dr pathPubCache: pubspecRef.
-	dr originPkg: pkgRef.
+
 	^ dr
+]
+
+{ #category : #'as yet unclassified' }
+DependenciesResolver >> analysePubspecYaml: aFileReference withDevDependencies: aBoolean [
+
+	"extract dependencency and info from a pubspec.yaml concerning a specific package"
+
+	| y2j json dependencies |
+	dependencies := OrderedCollection new.
+
+	"convert pubspec.yaml to json (Dictionnary)"
+	y2j := Yaml2Json new.
+	json := STONJSON fromString:
+		        (y2j convertPubSpecYamlToJson: aFileReference contents).
+
+	"get official name of the package"
+	(self dicoPackages at: (json at: #name)) name: (json at: #name).
+
+	"get the direct dependencies (direct main) "
+	dependencies := (json at: #dependencies ifAbsent: Dictionary new)
+		                keys collect: [ :k | 
+							dicoPackages at: k ifAbsentPut: [ FlutterPackage withName: k ].
+		                "FlutterPackage withName: k withParent: self" ].
+
+	"if necessary, get the dev dependencies"
+	aBoolean ifTrue: [ 
+		dependencies := dependencies
+		                ,
+			                ((json
+				                  at: #dev_dependencies
+				                  ifAbsent: Dictionary new) keys collect: [ :k | 
+				                 dicoPackages at: k ifAbsentPut: [ FlutterPackage withName: k ].
+		                "FlutterPackage withName: k withParent: self" ])
+				                asOrderedCollection ].
+
+	"store all dependencies"
+	(self dicoPackages at: (json at: #name)) childrenDep:
+		dependencies asOrderedCollection.
+
+	^ self dicoPackages at: (json at: #name)
 ]
 
 { #category : #'as yet unclassified' }
 DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJson: aDictionnary [
 
 	| packages |
-	packages := aDictionnary at: 'packages'.
+	packages := aDictionnary at: #packages.
 
 	"Filter the dependencies to only keep packages that are not from the SDK"
 	aFlutterPackage childrenDep:
 		(aFlutterPackage childrenDep select: [ :aPkg | 
-			 ((packages at: (aPkg name) at: 'source') = 'sdk') not ]).
+			 ((packages at: aPkg name at: #source) = #sdk) not ]).
 
 	"get info on direct dependencies "
 	aFlutterPackage childrenDep do: [ :aPkg | 
-		aPkg version: (packages at: (aPkg name) at: 'version').
-		aPkg source: (packages at: (aPkg name) at: 'source') ]
+		aPkg version: (packages at: aPkg name at: #version).
+		aPkg source: (packages at: aPkg name at: #source) ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #exploration }
 DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJsonV2: aDictionnary [
 
 	| packages |
@@ -94,7 +140,18 @@ DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJsonV2: a
 		aPkg source: ((packages at: aPkg name) at: 'source') ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #getter }
+DependenciesResolver >> dicoPackages [
+	^ dicoPackages
+]
+
+{ #category : #setter }
+DependenciesResolver >> dicoPackages: aCollection [
+
+	dicoPackages := aCollection asDictionary
+]
+
+{ #category : #exploration }
 DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 
 	"create a new package instance"
@@ -122,7 +179,7 @@ DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 		self exploreDirectDependencies: child ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #exploration }
 DependenciesResolver >> exploreDirectDependenciesV2: aFlutterPackage [
 
 	"create a new package instance"
@@ -156,7 +213,39 @@ DependenciesResolver >> exploreDirectDependenciesV2: aFlutterPackage [
 		self exploreDirectDependenciesV2: child ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #exploration }
+DependenciesResolver >> exploreDirectDependenciesV3: aFlutterPackage [
+
+	"create a new package instance"
+	self analysePubspecYaml: aFlutterPackage pubspecyaml withDevDependencies: false.
+	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
+
+	aFlutterPackage childrenDep do: [ :child | 
+		| pkgPath exportPath |
+		pkgPath := ''.
+
+		child source = #hosted ifTrue: [ 
+			pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
+			           / child exportPackageName ].
+		child source = #git ifTrue: [ 
+			self shouldBeImplemented
+			"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
+			"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
+
+		"Copy this dependency package to the export path and call initFromPath from the new location"
+		exportPath := pkgExportedFolder / child exportPackageName.
+		exportPath exists ifFalse: [ pkgPath copyAllTo: exportPath ].
+		child path: exportPath.
+		self
+			analysePubspecYaml: child pubspecyaml
+			withDevDependencies: false.
+		child addParentalDep: aFlutterPackage.
+
+		self exploreDirectDependenciesV3:
+			(dicoPackages at: child name ifAbsentPut: [ child ]) ]
+]
+
+{ #category : #exploration }
 DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 
 	| pkg mainPkgPath |
@@ -170,16 +259,18 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
 	self collectDependenciesOf: pkg fromLockJson: lock2json.
 
+
+
 	pkg childrenDep do: [ :child | 
 		| pkgPath exportPath |
 		pkgPath := ''.
 
 		"Construct the proper path of the original package depending on the type of dependencies (from git or hosted on pub dev)"
-		child source = 'hosted' ifTrue: [ 
+		child source = #hosted ifTrue: [ 
 			pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
 			           / child exportPackageName ].
-		child source = 'git' ifTrue: [ 
-			1 halt.
+		child source = #git ifTrue: [ 
+			self shouldBeImplemented.
 			"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
 			"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
 
@@ -188,12 +279,12 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 		exportPath exists ifFalse: [ pkgPath copyAllTo: exportPath ].
 		child initFromPath: exportPath.
 
-		self exploreDirectDependencies: child. ].
+		self exploreDirectDependencies: child ].
 
 	^ pkg
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #exploration }
 DependenciesResolver >> exploreFromAPackageV2: packageAsFileLocator [
 
 	| pkg mainPkgPath |
@@ -230,11 +321,65 @@ DependenciesResolver >> exploreFromAPackageV2: packageAsFileLocator [
 	^ pkg
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #exploration }
+DependenciesResolver >> exploreFromAPackageV3: packageAsFileLocator [
+
+	| pkg mainPkgPath |
+	"create a new package instance"
+	mainPkgPath := packageAsFileLocator asFileReference.
+
+
+	pkg := FlutterPackage initWithPath: mainPkgPath.
+	dicoPackages at: pkg name ifAbsentPut: [ pkg ].
+	pkg := self
+		       analysePubspecYaml: pkg pubspecyaml
+		       withDevDependencies: true.
+
+
+
+
+	"because this package is the entry point, get its pubspec.lock as Json"
+	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
+	self collectDependenciesOf: pkg fromLockJson: lock2json.
+
+
+	"explore children dependencies"
+	pkg childrenDep do: [ :child | 
+		| pkgPath exportPath |
+		pkgPath := ''.
+
+		"Construct the proper path of the original package depending on the type of dependencies (from git or hosted on pub dev)"
+		child source = #hosted ifTrue: [ 
+			pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
+			           / child exportPackageName ].
+		child source = #git ifTrue: [ 
+			self shouldBeImplemented
+			"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
+			"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
+
+		"Copy this dependency package to the export path and call initFromPath from the new location"
+		exportPath := pkgExportedFolder / child exportPackageName.
+		exportPath exists ifFalse: [ pkgPath copyAllTo: exportPath ].
+		child path: exportPath.
+		child addParentalDep: pkg.
+
+
+		self exploreDirectDependenciesV3:
+			(dicoPackages at: child name ifAbsentPut: [ child ]) ].
+
+	^ pkg
+]
+
+{ #category : #exploration }
 DependenciesResolver >> explorePackage: aPathasString [
 
 	| pkg |
 	"create a new package instance"
+	self
+		deprecated: 'Use #exploreFromAPackage: instead'
+		on: '14 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 	pkg := FlutterPackage new.
 	pkg initFromPath: aPathasString.
 	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
@@ -245,24 +390,23 @@ DependenciesResolver >> explorePackage: aPathasString [
 		path := FileLocator home
 		        /
 		        ('.pub-cache/hosted/pub.dartlang.org/'
-		         , child exportPackageName).
-		].
-	1 halt.
+		         , child exportPackageName) ].
+	1 halt
+]
+
+{ #category : #getter }
+DependenciesResolver >> exportPkg [
+	^ exportPkg
+]
+
+{ #category : #setter }
+DependenciesResolver >> exportPkg: aFileLocator [
+
+	exportPkg := aFileLocator asFileReference.
 ]
 
 { #category : #'as yet unclassified' }
 DependenciesResolver >> initialize [
-]
-
-{ #category : #getter }
-DependenciesResolver >> originPkg [
-	^ originPkg
-]
-
-{ #category : #setter }
-DependenciesResolver >> originPkg: aFileLocator [
-
-	originPkg := aFileLocator asFileReference
 ]
 
 { #category : #'as yet unclassified' }
