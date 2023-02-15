@@ -97,47 +97,6 @@ FlutterPackage >> extractNameFromPubSpec [
 ]
 
 { #category : #'as yet unclassified' }
-FlutterPackage >> getInfoFromPubspecYaml: aFileReference withDevDependencies: aBoolean [
-
-	"extract dependencency and info from a pubspec.yaml concerning a specific package"
-
-	| y2j json dependencies |
-	self
-		deprecated: 'Use analysePubspecYaml:withDevDependencies: in DependenciesResolver instead  instead'
-		on: '14 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-
-	dependencies := OrderedCollection new.
-
-	"convert pubspec.yaml to json (Dictionnary)"
-	y2j := Yaml2Json new.
-	json := STONJSON fromString:
-		        (y2j convertPubSpecYamlToJson: aFileReference contents).
-
-	"get official name of the package"
-	self name: (json at: 'name').
-
-	"get the direct dependencies (direct main) "
-	dependencies := (json at: 'dependencies' ifAbsent: Dictionary new)
-		                keys collect: [ :k | 
-		                FlutterPackage withName: k withParent: self ].
-
-	"if necessary, get the dev dependencies"
-	aBoolean ifTrue: [ 
-		dependencies := dependencies
-		                ,
-			                ((json
-				                  at: 'dev_dependencies'
-				                  ifAbsent: Dictionary new) keys collect: [ :k | 
-				                 FlutterPackage withName: k withParent: self ])
-				                asOrderedCollection ].
-
-	"store all dependencies"
-	self childrenDep: dependencies asOrderedCollection
-]
-
-{ #category : #'as yet unclassified' }
 FlutterPackage >> getJsonFromPubspecLock: aFileReference [
 
 	"return the FileLocator of the pubspec.yaml file in this current package"
@@ -147,38 +106,6 @@ FlutterPackage >> getJsonFromPubspecLock: aFileReference [
 	json := STONJSON fromString:
 		        (y2j convertPubSpecLockToJson: aFileReference contents).
 	^ json
-]
-
-{ #category : #initialize }
-FlutterPackage >> initFromPath: aFileLocator [
-
-	self
-		deprecated: 'Use #initWithPath instead'
-		on: '14 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-
-	self path: aFileLocator asFileReference.
-
-	self
-		getInfoFromPubspecYaml: self pubspecyaml
-		withDevDependencies: false
-]
-
-{ #category : #initialize }
-FlutterPackage >> initMainPackageFromPath: aFileLocator [
-
-		self
-		deprecated: 'Use #initWithPath instead'
-		on: '14 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-
-	self path: aFileLocator asFileReference.
-
-	self
-		getInfoFromPubspecYaml: self pubspecyaml
-		withDevDependencies: true
 ]
 
 { #category : #initialization }
