@@ -75,8 +75,8 @@ DependenciesResolver >> analysePubspecYaml: aFileReference withDevDependencies: 
 
 	"get the direct dependencies (direct main) "
 	dependencies := (json at: #dependencies ifAbsent: Dictionary new)
-		                keys collect: [ :k | 
-							dicoPackages at: k ifAbsentPut: [ FlutterPackage withName: k ].
+		                keys collect: [ :keyName | 
+							dicoPackages at: keyName ifAbsentPut: [ FlutterPackage withName: keyName ].
 		                "FlutterPackage withName: k withParent: self" ].
 
 	"if necessary, get the dev dependencies"
@@ -103,41 +103,20 @@ DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJson: aDi
 	| packages |
 	packages := aDictionnary at: #packages.
 
-	"Filter the dependencies to only keep packages that are not from the SDK"
-	aFlutterPackage childrenDep:
-		(aFlutterPackage childrenDep select: [ :aPkg | 
-			 ((packages at: aPkg name at: #source) = #sdk) not ]).
+
 
 	"get info on direct dependencies "
 	aFlutterPackage childrenDep do: [ :aPkg | 
 		aPkg version: (packages at: aPkg name at: #version).
-		aPkg source: (packages at: aPkg name at: #source) ]
-]
+		aPkg source: (packages at: aPkg name at: #source) ].
 
-{ #category : #exploration }
-DependenciesResolver >> collectDependenciesOf: aFlutterPackage fromLockJsonV2: aDictionnary [
-
-	| packages |
-	self
-		deprecated: 'Use #collectDependenciesOf:fromLockJson: instead'
-		on: '13 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-	packages := aDictionnary at: 'packages'.
-
-	aFlutterPackage source:
-		(packages at: aFlutterPackage name at: 'source' ifAbsent: nil).
-	aFlutterPackage version:
-		(packages at: aFlutterPackage name at: 'version' ifAbsent: nil).
+	aFlutterPackage childrenDep do: [ :aPkg | 
+		aPkg source = #sdk ifTrue: [ self dicoPackages removeKey: aPkg name ] ].
 
 	"Filter the dependencies to only keep packages that are not from the SDK"
 	aFlutterPackage childrenDep:
 		(aFlutterPackage childrenDep select: [ :aPkg | 
-			 (((packages at: aPkg name) at: 'source') = 'sdk') not ]).
-
-	aFlutterPackage childrenDep do: [ :aPkg | 
-		aPkg version: ((packages at: aPkg name) at: 'version').
-		aPkg source: ((packages at: aPkg name) at: 'source') ]
+			 ((packages at: aPkg name at: #source) = #sdk) not ])
 ]
 
 { #category : #getter }
@@ -156,12 +135,18 @@ DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 
 	"create a new package instance"
 
+	self
+		deprecated: 'Use #exploreDirectDependenciesV4: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
+
 	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
 
 	aFlutterPackage childrenDep do: [ :child | 
 		| pkgPath exportPath |
 		pkgPath := ''.
-		
+
 		child source = 'hosted' ifTrue: [ 
 			pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
 			           / child exportPackageName ].
@@ -175,49 +160,23 @@ DependenciesResolver >> exploreDirectDependencies: aFlutterPackage [
 		exportPath := pkgExportedFolder / child exportPackageName.
 		exportPath exists ifFalse: [ pkgPath copyAllTo: exportPath ].
 		child initFromPath: exportPath.
-		
+
 		self exploreDirectDependencies: child ]
-]
-
-{ #category : #exploration }
-DependenciesResolver >> exploreDirectDependenciesV2: aFlutterPackage [
-
-	"create a new package instance"
-
-	| exportPath pkgPath |
-	self
-		deprecated: 'Use #exploreDirectDependencies: instead'
-		on: '13 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-
-	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
-	exportPath := pkgExportedFolder / aFlutterPackage exportPackageName.
-
-	pkgPath := ''.
-	aFlutterPackage source = 'hosted' ifTrue: [ 
-		pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
-		           / aFlutterPackage exportPackageName ].
-	aFlutterPackage source = 'git' ifTrue: [ 
-		1 halt
-		"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
-		"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
-
-
-	"Copy this dependency package to the export path and call initFromPath from the new location"
-	exportPath := pkgExportedFolder / aFlutterPackage exportPackageName.
-	exportPath exists ifFalse: [ pkgPath copyAllTo: exportPath ].
-	aFlutterPackage initFromPath: exportPath.
-
-	aFlutterPackage childrenDep do: [ :child | 
-		self exploreDirectDependenciesV2: child ]
 ]
 
 { #category : #exploration }
 DependenciesResolver >> exploreDirectDependenciesV3: aFlutterPackage [
 
 	"create a new package instance"
-	self analysePubspecYaml: aFlutterPackage pubspecyaml withDevDependencies: false.
+
+	self
+		deprecated: 'Use #exploreDirectDependenciesV4: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
+	self
+		analysePubspecYaml: aFlutterPackage pubspecyaml
+		withDevDependencies: false.
 	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
 
 	aFlutterPackage childrenDep do: [ :child | 
@@ -251,33 +210,28 @@ DependenciesResolver >> exploreDirectDependenciesV4: aFlutterPackage [
 	"create a new package instance"
 
 	| currentPkgPath currentExportPath |
-	currentPkgPath := ''.
+	
+	aFlutterPackage exportPackageName = 'google_sign_in_web-0.10.0+5' ifTrue: [ 1 halt. ].
+	
+	
+	currentPkgPath := self pathFromPackageSource: aFlutterPackage.
 
-	"Construct the proper path of the original package depending on the type of dependencies (from git or hosted on pub dev)"
-	aFlutterPackage source = #hosted ifTrue: [ 
-		currentPkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
-		                  / aFlutterPackage exportPackageName ].
-	aFlutterPackage source = #git ifTrue: [ 
-		self shouldBeImplemented
-		"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
-		"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
-
-	"Copy this dependency package to the export path and call initFromPath from the new location"
 	currentExportPath := pkgExportedFolder
 	                     / aFlutterPackage exportPackageName.
+
 	currentExportPath exists ifFalse: [ 
 		currentPkgPath copyAllTo: currentExportPath ].
+
 	aFlutterPackage path: currentExportPath.
 
 	self
 		analysePubspecYaml: aFlutterPackage pubspecyaml
 		withDevDependencies: false.
+
 	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
 
 	aFlutterPackage childrenDep do: [ :child | 
-		| pkgPath exportPath |
 		child addParentalDep: aFlutterPackage.
-
 		self exploreDirectDependenciesV4:
 			(dicoPackages at: child name ifAbsentPut: [ child ]) ]
 ]
@@ -287,6 +241,11 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 
 	| pkg mainPkgPath |
 	"create a new package instance"
+	self
+		deprecated: 'Use #exploreFromAPackageV4: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 	mainPkgPath := packageAsFileLocator asFileReference.
 
 	pkg := FlutterPackage new.
@@ -307,7 +266,7 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 			pkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
 			           / child exportPackageName ].
 		child source = #git ifTrue: [ 
-			self shouldBeImplemented.
+			self shouldBeImplemented
 			"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
 			"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
 
@@ -322,47 +281,15 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 ]
 
 { #category : #exploration }
-DependenciesResolver >> exploreFromAPackageV2: packageAsFileLocator [
-
-	| pkg mainPkgPath |
-	"create a new package instance"
-	self
-		deprecated: 'Use #exploreFromAPackage: instead'
-		on: '13 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-
-	mainPkgPath := packageAsFileLocator asFileReference.
-
-	pkg := FlutterPackage new.
-	pkg initMainPackageFromPath: mainPkgPath.
-
-	"because this package is the entry point, get its pubspec.lock as Json"
-	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
-	"self collectDependenciesOf: pkg fromLockJson: lock2json."
-
-
-	"Filter the dependencies to only keep packages that are not from the SDK"
-	pkg childrenDep: (pkg childrenDep select: [ :aPkg | 
-			 (((lock2json at: 'packages' at: aPkg name) at: 'source') = 'sdk')
-				 not ]).
-
-	pkg childrenDep do: [ :aPkg | 
-		aPkg version:
-			((lock2json at: 'packages' at: aPkg name) at: 'version').
-		aPkg source: ((lock2json at: 'packages' at: aPkg name) at: 'source') ].
-
-	pkg childrenDep do: [ :child | 
-		self exploreDirectDependenciesV2: child ].
-
-	^ pkg
-]
-
-{ #category : #exploration }
 DependenciesResolver >> exploreFromAPackageV3: packageAsFileLocator [
 
 	| pkg mainPkgPath |
 	"create a new package instance"
+	self
+		deprecated: 'Use #exploreFromAPackageV4: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 	mainPkgPath := packageAsFileLocator asFileReference.
 
 
@@ -434,30 +361,6 @@ DependenciesResolver >> exploreFromAPackageV4: packageAsFileLocator [
 	^ pkg
 ]
 
-{ #category : #exploration }
-DependenciesResolver >> explorePackage: aPathasString [
-
-	| pkg |
-	"create a new package instance"
-	self
-		deprecated: 'Use #exploreFromAPackage: instead'
-		on: '14 February 2023'
-		in:
-		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
-	pkg := FlutterPackage new.
-	pkg initFromPath: aPathasString.
-	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
-	self collectDependenciesOf: pkg fromLockJson: lock2json.
-
-	pkg childrenDep do: [ :child | 
-		| path |
-		path := FileLocator home
-		        /
-		        ('.pub-cache/hosted/pub.dartlang.org/'
-		         , child exportPackageName) ].
-	1 halt
-]
-
 { #category : #getter }
 DependenciesResolver >> exportPkg [
 	^ exportPkg
@@ -471,6 +374,21 @@ DependenciesResolver >> exportPkg: aFileLocator [
 
 { #category : #'as yet unclassified' }
 DependenciesResolver >> initialize [
+]
+
+{ #category : #exploration }
+DependenciesResolver >> pathFromPackageSource: aFlutterPackage [
+
+	"Construct the proper path of the original package depending on the type of dependencies (from git or hosted on pub dev)"
+	| currentPkgPath |
+	aFlutterPackage source = #hosted ifTrue: [ 
+		currentPkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
+		                  / aFlutterPackage exportPackageName ].
+	aFlutterPackage source = #git ifTrue: [ 
+		self shouldBeImplemented
+		"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
+		"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
+	^ currentPkgPath
 ]
 
 { #category : #'as yet unclassified' }

@@ -16,6 +16,11 @@ Class {
 DependencyGraph >> buildGraph: aFlutterPackage [
 
 	| currentNode |
+	self
+		deprecated: 'Use #buildGraphFromV2:withData: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 	self flowGraph definitions isEmpty ifTrue: [ root := aFlutterPackage ].
 
 	currentNode := MeFCNode named: aFlutterPackage exportPackageName.
@@ -38,7 +43,7 @@ DependencyGraph >> buildGraph: aFlutterPackage [
 		flowGraph addDefinition: link.
 		self buildGraph: dep ].
 
-	^ self.
+	^ self
 ]
 
 { #category : #initialization }
@@ -46,6 +51,11 @@ DependencyGraph >> buildGraphFrom: aFlutterPackage withData: aDictionnary [
 
 	| currentNode nodesDico linksDico |
 	"flowGraph := MeFlowchartDiagram new"
+	self
+		deprecated: 'Use #buildGraphFromV2:withData: instead'
+		on: '15 February 2023'
+		in:
+		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
 	self flowGraph definitions isEmpty ifTrue: [ root := aFlutterPackage ].
 	nodesDico := Dictionary new.
 	linksDico := Dictionary new.
@@ -112,34 +122,6 @@ DependencyGraph >> buildGraphFromV2: aFlutterPackage withData: aDictionnary [
 
 
 	linksDico do: [ :n | flowGraph addDefinition: n ].
-
-	^ self
-]
-
-{ #category : #initialization }
-DependencyGraph >> buildGraphV2: aFlutterPackage [
-
-	| currentNode |
-	self flowGraph definitions isEmpty ifTrue: [ root := aFlutterPackage ].
-
-	currentNode := MeFCNode named: aFlutterPackage exportPackageName.
-
-	(packages includes: aFlutterPackage) ifFalse: [ 
-		packages add: aFlutterPackage.
-		flowGraph addDefinition: currentNode ].
-
-	aFlutterPackage childrenDep do: [ :dep | 
-		| link childNode |
-		childNode := MeFCNode named: dep exportPackageName.
-
-		(packages includes: dep) ifFalse: [ 
-			flowGraph addDefinition: childNode.
-			packages add: dep ].
-
-		link := MeFCLink newFromNode: currentNode toNode: childNode.
-		link toArrowType: MeFCArrowHeadType new.
-		flowGraph addDefinition: link.
-		self buildGraph: dep ].
 
 	^ self
 ]
