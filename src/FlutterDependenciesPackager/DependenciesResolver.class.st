@@ -246,6 +246,43 @@ DependenciesResolver >> exploreDirectDependenciesV3: aFlutterPackage [
 ]
 
 { #category : #exploration }
+DependenciesResolver >> exploreDirectDependenciesV4: aFlutterPackage [
+
+	"create a new package instance"
+
+	| currentPkgPath currentExportPath |
+	currentPkgPath := ''.
+
+	"Construct the proper path of the original package depending on the type of dependencies (from git or hosted on pub dev)"
+	aFlutterPackage source = #hosted ifTrue: [ 
+		currentPkgPath := pathPubCache / 'hosted' / 'pub.dartlang.org'
+		                  / aFlutterPackage exportPackageName ].
+	aFlutterPackage source = #git ifTrue: [ 
+		self shouldBeImplemented
+		"TODO !!!  recuperer package <name + resolved-ref> à la place de version pour exportPackageName !"
+		"pkgPath := FileLocator C / pathPubCache / 'git' / 'pub.dartlang.org' /child exportPackageName." ].
+
+	"Copy this dependency package to the export path and call initFromPath from the new location"
+	currentExportPath := pkgExportedFolder
+	                     / aFlutterPackage exportPackageName.
+	currentExportPath exists ifFalse: [ 
+		currentPkgPath copyAllTo: currentExportPath ].
+	aFlutterPackage path: currentExportPath.
+
+	self
+		analysePubspecYaml: aFlutterPackage pubspecyaml
+		withDevDependencies: false.
+	self collectDependenciesOf: aFlutterPackage fromLockJson: lock2json.
+
+	aFlutterPackage childrenDep do: [ :child | 
+		| pkgPath exportPath |
+		child addParentalDep: aFlutterPackage.
+
+		self exploreDirectDependenciesV4:
+			(dicoPackages at: child name ifAbsentPut: [ child ]) ]
+]
+
+{ #category : #exploration }
 DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 
 	| pkg mainPkgPath |
@@ -365,6 +402,33 @@ DependenciesResolver >> exploreFromAPackageV3: packageAsFileLocator [
 
 
 		self exploreDirectDependenciesV3:
+			(dicoPackages at: child name ifAbsentPut: [ child ]) ].
+
+	^ pkg
+]
+
+{ #category : #exploration }
+DependenciesResolver >> exploreFromAPackageV4: packageAsFileLocator [
+
+	| pkg mainPkgPath |
+	"create a new package instance"
+	mainPkgPath := packageAsFileLocator asFileReference.
+
+	pkg := FlutterPackage initWithPath: mainPkgPath.
+	dicoPackages at: pkg name ifAbsentPut: [ pkg ].
+	pkg := self
+		       analysePubspecYaml: pkg pubspecyaml
+		       withDevDependencies: true.
+
+	"because this package is the entry point, get its pubspec.lock as Json"
+	lock2json := pkg getJsonFromPubspecLock: pkg pubpspecLockFileLocator.
+	self collectDependenciesOf: pkg fromLockJson: lock2json.
+
+	"explore children dependencies"
+	pkg childrenDep do: [ :child | 
+		child addParentalDep: pkg.
+
+		self exploreDirectDependenciesV4:
 			(dicoPackages at: child name ifAbsentPut: [ child ]) ].
 
 	^ pkg
