@@ -3,39 +3,57 @@ Class {
 	#superclass : #Object,
 	#instVars : [
 		'root',
-		'packages',
 		'flowGraph'
 	],
 	#category : #FlutterDependenciesPackager
 }
 
 { #category : #initialization }
-DependencyGraph >> buildGraph: aFlutterPackage [
+DependencyGraph >> buildGraphFrom: aFlutterPackage withData: aDictionnary [
 
-	| currentNode |
+	| currentNode nodesDico linksDico namesDico |
+	"flowGraph := MeFlowchartDiagram new"
+	self flowGraph direction: MeFCDirection LR.
 	self flowGraph definitions isEmpty ifTrue: [ root := aFlutterPackage ].
+	"Dictionnary for the nodes"
+	nodesDico := Dictionary new.
+	"Dictionnary for the links "
+	linksDico := Dictionary new.
+	"this last dictionnary is necessary to attribut a name to the node that is valid in mermaid"
+	namesDico := Dictionary new.
 
-	currentNode := MeFCNode named: aFlutterPackage exportPackageName.
+	aDictionnary do: [ :each | 
+		currentNode := MeFCNode named: (self createMermaidId: each name).
+		currentNode text: each exportPackageName.
+		nodesDico
+			at: (self createMermaidId: each name)
+			ifAbsentPut: [ currentNode ] ].
+
+	nodesDico do: [ :n | flowGraph addDefinition: n ].
+
+	aDictionnary do: [ :each | 
+		currentNode := nodesDico at: (self createMermaidId: each name).
+
+		each childrenDep do: [ :dep | 
+			| link toNode |
+			toNode := nodesDico at: (self createMermaidId: dep name).
+
+			link := MeFCLink newFromNode: currentNode toNode: toNode.
+			link toArrowType: MeFCArrowHeadType new.
+			linksDico
+				at: (self createMermaidId: currentNode name , toNode name)
+				ifAbsentPut: [ link ] ] ].
 
 
-	(packages includes: aFlutterPackage) ifFalse: [ 
-		packages add: aFlutterPackage.
-		flowGraph addDefinition: currentNode ].
+	linksDico do: [ :n | flowGraph addDefinition: n ].
 
-	aFlutterPackage childrenDep do: [ :dep | 
-		| link childNode |
-		childNode := MeFCNode named: dep exportPackageName.
+	^ self
+]
 
-		(packages includes: dep) ifFalse: [ 
-			flowGraph addDefinition: childNode.
-			packages add: dep ].
+{ #category : #initialization }
+DependencyGraph >> createMermaidId: aString [
 
-		link := MeFCLink newFromNode: currentNode toNode: childNode.
-		link toArrowType: MeFCArrowHeadType new.
-		flowGraph addDefinition: link.
-		self buildGraph: dep ].
-
-	^ self.
+	^ aString replaceAllRegex: '_|\.' with: ''
 ]
 
 { #category : #initialization }
@@ -48,6 +66,5 @@ DependencyGraph >> flowGraph [
 DependencyGraph >> initialize [
 
 	root := FlutterPackage new.
-	packages := OrderedCollection new.
 	flowGraph := MeFlowchartDiagram new
 ]

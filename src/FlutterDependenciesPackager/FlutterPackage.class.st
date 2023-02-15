@@ -7,12 +7,20 @@ Class {
 		'path',
 		'source',
 		'childrenDep',
-		'parentalDep',
-		'pubspecyaml',
-		'pubspeclock'
+		'parentalDep'
 	],
 	#category : #FlutterDependenciesPackager
 }
+
+{ #category : #initialize }
+FlutterPackage class >> initWithPath: aFileReference [
+
+	| aPackage |
+	aPackage := FlutterPackage new.
+	aPackage path: aFileReference asFileReference. 
+	aPackage extractNameFromPubSpec.
+	^ aPackage
+]
 
 { #category : #initialize }
 FlutterPackage class >> withName: aString [
@@ -43,6 +51,12 @@ FlutterPackage >> = otherFlutterPackage [
 ]
 
 { #category : #setter }
+FlutterPackage >> addParentalDep: aFlutterPackage [
+
+	parentalDep add: aFlutterPackage .
+]
+
+{ #category : #setter }
 FlutterPackage >> asString [
 
 	"name-version"
@@ -67,28 +81,19 @@ FlutterPackage >> exportPackageName [
 	version isNil ifTrue: [ ^ name ] ifFalse: [ ^ name, '-', version ]. 
 ]
 
-{ #category : #'as yet unclassified' }
-FlutterPackage >> getInfoFromPubspecYaml: aFileReference withDevDependencies: aBoolean [
+{ #category : #extraction }
+FlutterPackage >> extractNameFromPubSpec [
 
-	"return the FileLocator of the pubspec.yaml file in this current package"
-
-	| y2j json dependencies |
+		| y2j json dependencies |
 	dependencies := OrderedCollection new.
+
+	"convert pubspec.yaml to json (Dictionnary)"
 	y2j := Yaml2Json new.
 	json := STONJSON fromString:
-		        (y2j convertPubSpecYamlToJson: aFileReference contents).
-	"official name of the package"
+		        (y2j convertPubSpecYamlToJson: self pubspecyaml contents).
+
+	"get official name of the package"
 	self name: (json at: 'name').
-	"get the direct dependencies (direct main) "
-	dependencies := (json at: 'dependencies' ifAbsent: Dictionary new)
-		                keys collect: [ :k | 
-		                FlutterPackage withName: k withParent: self ].
-	aBoolean ifTrue: [ 
-		dependencies := dependencies ,
-			((json at: 'dev_dependencies' ifAbsent: Dictionary new) keys 
-				 collect: [ :k | FlutterPackage withName: k withParent: self ])
-				asOrderedCollection ].
-	self childrenDep: dependencies asOrderedCollection
 ]
 
 { #category : #'as yet unclassified' }
@@ -101,24 +106,6 @@ FlutterPackage >> getJsonFromPubspecLock: aFileReference [
 	json := STONJSON fromString:
 		        (y2j convertPubSpecLockToJson: aFileReference contents).
 	^ json
-]
-
-{ #category : #initialize }
-FlutterPackage >> initFromPath: aFileLocator [
-
-	self path: aFileLocator asFileReference.
-	pubspecyaml := self pubpspecYamlFileLocator.
-
-	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: false
-]
-
-{ #category : #initialize }
-FlutterPackage >> initMainPackageFromPath: aFileLocator [
-
-	self path: aFileLocator asFileReference.
-	pubspecyaml := self pubpspecYamlFileLocator.
-
-	self getInfoFromPubspecYaml: pubspecyaml withDevDependencies: true
 ]
 
 { #category : #initialization }
@@ -138,11 +125,6 @@ FlutterPackage >> name [
 { #category : #setter }
 FlutterPackage >> name: aString [ 
 	name := aString
-]
-
-{ #category : #setter }
-FlutterPackage >> parentalDep: aFlutterPackage [ 
-	parentalDep := aFlutterPackage
 ]
 
 { #category : #setter }
@@ -190,6 +172,17 @@ FlutterPackage >> pubpspecYamlFileLocator [
 		ifFalse: [ 
 		Exception signal: 'The path does not contain any pubspec.yaml file' ].
 	^ path2Yaml
+]
+
+{ #category : #'as yet unclassified' }
+FlutterPackage >> pubspeclock [
+
+	^ self pubpspecLockFileLocator 
+]
+
+{ #category : #'as yet unclassified' }
+FlutterPackage >> pubspecyaml [
+	^ self pubpspecYamlFileLocator 
 ]
 
 { #category : #getter }
