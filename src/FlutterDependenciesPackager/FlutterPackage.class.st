@@ -127,6 +127,11 @@ FlutterPackage >> name: aString [
 	name := aString
 ]
 
+{ #category : #getter }
+FlutterPackage >> parentalDep [
+	^ parentalDep
+]
+
 { #category : #setter }
 FlutterPackage >> path [
 	^ path
