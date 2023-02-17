@@ -6,7 +6,8 @@ Class {
 		'pkgExportedFolder',
 		'pathPubCache',
 		'exportPkg',
-		'dicoPackages'
+		'dicoPackages',
+		'root'
 	],
 	#category : #FlutterDependenciesPackager
 }
@@ -183,7 +184,24 @@ DependenciesResolver >> exploreFromAPackage: packageAsFileLocator [
 		self exploreDirectDependencies:
 			(dicoPackages at: child name ifAbsentPut: [ child ]) ].
 
+	self root: pkg. 
 	^ pkg
+]
+
+{ #category : #getter }
+DependenciesResolver >> exportMermaidFile [
+
+	| dg file |
+
+	
+	dg := DependencyGraph new.
+	dg buildGraphFrom: self root withData: self dicoPackages.
+	
+	file := self exportPkg / (self root name, '_graph.mermaid').
+	file ensureCreateFile. 
+	(file writeStream) nextPutAll: (dg flowGraph exportWith: dg flowGraph class defaultWritter new); close.
+	^ file. 
+	
 ]
 
 { #category : #getter }
@@ -222,8 +240,23 @@ DependenciesResolver >> pathPubCache: aPath [
 	pathPubCache := aPath asFileReference
 ]
 
+{ #category : #getter }
+DependenciesResolver >> pkgExportedFolder [
+	^ pkgExportedFolder
+]
+
 { #category : #setter }
 DependenciesResolver >> pkgExportedFolder: aFileReference [
 
 	pkgExportedFolder := aFileReference asFileReference
+]
+
+{ #category : #accessing }
+DependenciesResolver >> root [
+^ root. 
+]
+
+{ #category : #accessing }
+DependenciesResolver >> root: aFlutterPackage [
+ root := aFlutterPackage. 
 ]

@@ -37,10 +37,22 @@ Class {
 { #category : #'as yet unclassified' }
 FlutterDependenciesPackager class >> applyOn: originPathOfPackage withPubCacheIn: pathOfPubCacheRoot [
 
-	| dp dr root dico leaves |
+	| dp dr root dico leaves "dg file" |
 	dr := DependenciesResolver initWithPackagePath: originPathOfPackage andPubcachePath: pathOfPubCacheRoot. 
 	root := (dr exploreFromAPackage: dr exportPkg).
 	dico := dr dicoPackages.
+	
+	dr exportMermaidFile. 
+	
+"	dg := DependencyGraph new.
+	dg buildGraphFrom: root withData: dr dicoPackages.
+	
+	file := dr exportPkg / (root name, '_graph.mermaid').
+	file ensureCreateFile. 
+	(file writeStream) nextPutAll: (dg flowGraph exportWith: dg flowGraph class defaultWritter new); close."
+	
+	
+	"recupere les packages qui n'ont pas de dependance sortant (Children dep)"
 	leaves := dico select: [ :pkg |
 	pkg childrenDep isEmpty.
 	 ].
@@ -74,6 +86,8 @@ FlutterDependenciesPackager >> visitFromLeaves: aDictionnary [
 	"recursion start here"
 
 	| nextLeaves leaves |
+	Transcript show: aDictionnary keys size; cr.
+	
 	aDictionnary isEmpty ifTrue: [ ^ self ].
 
 	leaves := aDictionnary.
@@ -89,6 +103,6 @@ FlutterDependenciesPackager >> visitFromLeaves: aDictionnary [
 		leafPkg parentalDep do: [ :parent | 
 			nextLeaves at: parent name ifAbsentPut: [ parent ] ] ].
 
-
+	
 	self visitFromLeaves: nextLeaves 
 ]

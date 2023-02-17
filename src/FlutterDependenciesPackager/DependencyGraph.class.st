@@ -75,7 +75,7 @@ DependencyGraph >> visitFromLeaves: aDictionnary [
 	"recursion start here"
 
 	self
-		deprecated: 'Use #FlutterDependenciesPackages instead'
+		deprecated: 'Use #FlutterDependenciesPackages visitFromLeaves instead'
 		on: '16 February 2023'
 		in:
 		'Pharo-10.0.0+build.528.sha.296f1d3342e7e4ade13d9fc8179531388d9e62e3 (64 Bit)'.
