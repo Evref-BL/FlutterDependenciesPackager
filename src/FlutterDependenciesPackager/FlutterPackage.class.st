@@ -51,6 +51,18 @@ FlutterPackage >> = otherFlutterPackage [
 ]
 
 { #category : #setter }
+FlutterPackage >> aValidFlutterPackageName [
+	
+	|versionString|
+	
+	
+^ version isNil ifTrue: [ ^ name ] ifFalse: [ 
+	versionString := version replaceAllRegex: '\.'  with: '_' .
+	versionString := versionString replaceAllRegex: '\+'  with: 'plus'.
+	^ name, '_', versionString ]
+]
+
+{ #category : #setter }
 FlutterPackage >> addParentalDep: aFlutterPackage [
 
 	parentalDep add: aFlutterPackage .
@@ -78,7 +90,7 @@ FlutterPackage >> childrenDep: aCollection [
 FlutterPackage >> exportPackageName [
 	
 	"name-version"
-	version isNil ifTrue: [ ^ name ] ifFalse: [ ^ name, '-', version ]. 
+	version isNil ifTrue: [ ^ name ] ifFalse: [ ^ name , '-', version ]. 
 ]
 
 { #category : #extraction }

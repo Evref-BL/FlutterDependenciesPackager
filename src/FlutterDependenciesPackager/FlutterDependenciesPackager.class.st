@@ -37,20 +37,12 @@ Class {
 { #category : #'as yet unclassified' }
 FlutterDependenciesPackager class >> applyOn: originPathOfPackage withPubCacheIn: pathOfPubCacheRoot [
 
-	| dp dr root dico leaves "dg file" |
+	| dp dr root dico leaves |
 	dr := DependenciesResolver initWithPackagePath: originPathOfPackage andPubcachePath: pathOfPubCacheRoot. 
 	root := (dr exploreFromAPackage: dr exportPkg).
 	dico := dr dicoPackages.
 	
 	dr exportMermaidFile. 
-	
-"	dg := DependencyGraph new.
-	dg buildGraphFrom: root withData: dr dicoPackages.
-	
-	file := dr exportPkg / (root name, '_graph.mermaid').
-	file ensureCreateFile. 
-	(file writeStream) nextPutAll: (dg flowGraph exportWith: dg flowGraph class defaultWritter new); close."
-	
 	
 	"recupere les packages qui n'ont pas de dependance sortant (Children dep)"
 	leaves := dico select: [ :pkg |
@@ -63,9 +55,69 @@ FlutterDependenciesPackager class >> applyOn: originPathOfPackage withPubCacheIn
 ]
 
 { #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> changeImportDeclarationContent: aString From: initialPkgName to: newPkgName [
+	
+			| newRegex res substitute |
+	newRegex := ('import ''package\:',initialPkgName,'\/') asRegex.
+		substitute := String streamContents: [ :str | 
+		              str << 'import ''package:' << newPkgName << '/'].
+	res := String streamContents: [ :out | 
+			       aString readStreamDo: [ :stream | 
+				       newRegex
+					       copyStream: stream
+					       to: out
+					       replacingMatchesWith: substitute  ] ].
+			
+			
+"	newRegex := ('import ''package\:',initialPkgName,'/').
+	aString lines do: [ :line
+		
+		 ]"
+	
+	^ res
+	
+	
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> modifyDartFilesImportsOf: aFlutterPackage byReplacing: initialPkgName to: newPkgName [
+	
+	(aFlutterPackage path allChildrenMatching: '*.dart') do: [ :file |
+		| fileStream content |
+		
+		
+		
+		"Read the entire stream into a string"
+		fileStream := file readStream.
+		content := fileStream upToEnd.
+
+		"Close the stream"
+		fileStream close.
+	
+		content := self changeImportDeclarationContent: content From: initialPkgName to: newPkgName .  
+		
+			file
+			delete;
+			writeStreamDo: [ :stream | 
+				stream << content ] 
+		
+		 ]. 
+
+	
+	
+]
+
+{ #category : #'as yet unclassified' }
 FlutterDependenciesPackager >> refactorPackage: aFlutterPackage [
 	
-	self flag: 'TODO'.
+
+	"change the package name in pubspec.yaml"
+	"self flag: 'TODO'."
+	
+	"change self reference in port"
+	"p.ex. ::  import 'package:PACKAGE_NAME/*.dart';"
+	self modifyDartFilesImportsOf: aFlutterPackage byReplacing: aFlutterPackage name to: aFlutterPackage aValidFlutterPackageName.
+	
 	
 	^ aFlutterPackage
 ]
@@ -74,7 +126,9 @@ FlutterDependenciesPackager >> refactorPackage: aFlutterPackage [
 FlutterDependenciesPackager >> refactorParentDependenciesOf: aFlutterPackage [
 	
 	aFlutterPackage parentalDep do: [ :pkg |
-			self flag: 'TODO'.
+			self flag: 'TODO modify yaml'.
+			
+			self modifyDartFilesImportsOf: pkg byReplacing: aFlutterPackage name to: aFlutterPackage aValidFlutterPackageName.
 		 ].
 	
 	^ aFlutterPackage
