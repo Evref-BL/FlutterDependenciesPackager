@@ -38,20 +38,45 @@ Class {
 FlutterDependenciesPackager class >> applyOn: originPathOfPackage withPubCacheIn: pathOfPubCacheRoot [
 
 	| dp dr root dico leaves |
-	dr := DependenciesResolver initWithPackagePath: originPathOfPackage andPubcachePath: pathOfPubCacheRoot. 
-	root := (dr exploreFromAPackage: dr exportPkg).
+	dr := DependenciesResolver
+		      initWithPackagePath: originPathOfPackage
+		      andPubcachePath: pathOfPubCacheRoot.
+	root := dr exploreFromAPackage: dr exportPkg.
 	dico := dr dicoPackages.
-	
-	dr exportMermaidFile. 
-	
+
+	dr exportMermaidFile.
+
 	"recupere les packages qui n'ont pas de dependance sortant (Children dep)"
-	leaves := dico select: [ :pkg |
-	pkg childrenDep isEmpty.
-	 ].
+	leaves := dico select: [ :pkg | pkg childrenDep isEmpty ].
 
 	dp := FlutterDependenciesPackager new.
-	dp visitFromLeaves: leaves. 
-	^ dr exportPkg. 
+	dp modifyAllYaml: dico.
+	dp visitFromLeaves: leaves.
+	
+	^ dr exportPkg
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> changeExportDeclarationContent: aString From: initialPkgName to: newPkgName [
+
+	| newRegex res substitute |
+	newRegex := ('export ''package\:' , initialPkgName , '\/') asRegex.
+	substitute := String streamContents: [ :str | 
+		              str << 'export ''package:' << newPkgName << '/' ].
+	res := String streamContents: [ :out | 
+		       aString readStreamDo: [ :stream | 
+			       newRegex
+				       copyStream: stream
+				       to: out
+				       replacingMatchesWith: substitute ] ].
+
+
+	"	newRegex := ('import ''package\:',initialPkgName,'/').
+	aString lines do: [ :line
+		
+		 ]"
+
+	^ res
 ]
 
 { #category : #'as yet unclassified' }
@@ -79,58 +104,163 @@ FlutterDependenciesPackager >> changeImportDeclarationContent: aString From: ini
 	
 ]
 
-{ #category : #'as yet unclassified' }
-FlutterDependenciesPackager >> modifyDartFilesImportsOf: aFlutterPackage byReplacing: initialPkgName to: newPkgName [
+{ #category : #refactoring }
+FlutterDependenciesPackager >> modifyAllYaml: aDictionary [ 
 	
-	(aFlutterPackage path allChildrenMatching: '*.dart') do: [ :file |
+	
+	
+	aDictionary do:[ :pkg |
+	pkg parentalDep isEmpty ifTrue: [ 
+		self modifyTheRootYamlOf: pkg.
+		 ] ifFalse: [ self modifyYamlOf: pkg.  ]
+	
+	]
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> modifyDartFilesOf: aFlutterPackage byReplacing: initialPkgName to: newPkgName [
+
+	(aFlutterPackage path allChildrenMatching: '*.dart') do: [ :file | 
 		| fileStream content |
-		
-		
-		
 		"Read the entire stream into a string"
 		fileStream := file readStream.
 		content := fileStream upToEnd.
 
 		"Close the stream"
 		fileStream close.
-	
-		content := self changeImportDeclarationContent: content From: initialPkgName to: newPkgName .  
-		
-			file
-			delete;
-			writeStreamDo: [ :stream | 
-				stream << content ] 
-		
-		 ]. 
 
-	
-	
+		content := self
+			           changeImportDeclarationContent: content
+			           From: initialPkgName
+			           to: newPkgName.
+
+		content := self
+			           changeExportDeclarationContent: content
+			           From: initialPkgName
+			           to: newPkgName.
+
+		file
+			delete;
+			writeStreamDo: [ :stream | stream << content ] ]
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> modifyTheRootYamlOf: aFlutterPackage [
+
+	"rewrite the pubspec.yaml file by changing the name of aFlutterPackage declare in this file. Replace it by the valide package name"
+
+	| yamlApi yaml builtins in out python_dict path dependencies  |
+	yamlApi := PyBridge load: #'ruamel.yaml::YAML'.
+	yaml := yamlApi new.
+
+	builtins := PyBridge loadClass: #builtins.
+
+	"store the path of the yaml file as a String"
+	path := aFlutterPackage pubspecyaml asFileReference pathString.
+	in := builtins open: path mode: #r.
+	python_dict := yaml load: in.
+	in close.
+	python_dict
+		at: #name
+		put:
+		(PyBridgeObjectLiteral with:
+			 aFlutterPackage aValidFlutterPackageName).
+
+
+
+	aFlutterPackage childrenDep isNotEmpty ifTrue: [ 
+		dependencies := python_dict at: #dependencies.
+
+		aFlutterPackage childrenDep do: [ :dep | 
+			| newValue newPath |
+			newValue := Dictionary new.
+			newPath := './packagedDependencies/' , dep exportPackageName , '/'.
+			newValue at: #path ifAbsentPut: newPath.
+			dependencies at: dep aValidFlutterPackageName put: newValue.
+			dependencies at: dep name put: ''.
+			dependencies pop: dep name ] ].
+
+
+	"rewrite the file"
+	out := builtins open: path mode: #w.
+	yaml dump: python_dict out: out.
+	out close
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> modifyYamlOf: aFlutterPackage [
+
+	"rewrite the pubspec.yaml file by changing the name of aFlutterPackage declare in this file. Replace it by the valide package name"
+
+	| yamlApi yaml builtins in out python_dict path dependencies hasDependencies |
+	yamlApi := PyBridge load: #'ruamel.yaml::YAML'.
+	yaml := yamlApi new.
+
+	builtins := PyBridge loadClass: #builtins.
+
+	"store the path of the yaml file as a String"
+	path := aFlutterPackage pubspecyaml asFileReference pathString.
+
+
+	in := builtins open: path mode: #r.
+	python_dict := yaml load: in.
+	in close.
+
+	python_dict
+		at: #name
+		put:
+		(PyBridgeObjectLiteral with:
+			 aFlutterPackage aValidFlutterPackageName).
+
+
+
+	aFlutterPackage childrenDep isNotEmpty ifTrue: [ 
+		dependencies := python_dict at: #dependencies.
+
+		aFlutterPackage childrenDep do: [ :dep | 
+			| newValue newPath |
+			newValue := Dictionary new.
+			newPath := '../' , dep exportPackageName , '/'.
+			newValue at: #path ifAbsentPut: newPath.
+			dependencies at: dep aValidFlutterPackageName put: newValue.
+			dependencies pop: dep name ] ].
+
+
+	"rewrite the file"
+	out := builtins open: path mode: #w.
+	yaml dump: python_dict out: out.
+	out close
 ]
 
 { #category : #'as yet unclassified' }
 FlutterDependenciesPackager >> refactorPackage: aFlutterPackage [
-	
 
-	"change the package name in pubspec.yaml"
-	"self flag: 'TODO'."
-	
+
+	"self modifyYamlOf: aFlutterPackage."
+
 	"change self reference in port"
+
 	"p.ex. ::  import 'package:PACKAGE_NAME/*.dart';"
-	self modifyDartFilesImportsOf: aFlutterPackage byReplacing: aFlutterPackage name to: aFlutterPackage aValidFlutterPackageName.
-	
-	
+
+	self
+		modifyDartFilesOf: aFlutterPackage
+		byReplacing: aFlutterPackage name
+		to: aFlutterPackage aValidFlutterPackageName.
+
+
 	^ aFlutterPackage
 ]
 
 { #category : #'as yet unclassified' }
 FlutterDependenciesPackager >> refactorParentDependenciesOf: aFlutterPackage [
-	
-	aFlutterPackage parentalDep do: [ :pkg |
-			self flag: 'TODO modify yaml'.
-			
-			self modifyDartFilesImportsOf: pkg byReplacing: aFlutterPackage name to: aFlutterPackage aValidFlutterPackageName.
-		 ].
-	
+
+	aFlutterPackage parentalDep do: [ :pkg | 
+
+		self
+			modifyDartFilesOf: pkg
+			byReplacing: aFlutterPackage name
+			to: aFlutterPackage aValidFlutterPackageName ].
+
 	^ aFlutterPackage
 ]
 
