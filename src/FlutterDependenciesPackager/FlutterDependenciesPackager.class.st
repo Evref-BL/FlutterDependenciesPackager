@@ -57,7 +57,30 @@ FlutterDependenciesPackager class >> applyOn: originPathOfPackage withPubCacheIn
 ]
 
 { #category : #'as yet unclassified' }
-FlutterDependenciesPackager >> changeExportDeclarationContent: aString From: initialPkgName to: newPkgName [
+FlutterDependenciesPackager >> changeExportDQDecl: aString From: initialPkgName to: newPkgName [
+
+	| newRegex res substitute |
+	newRegex := ('export \"package\:' , initialPkgName , '\/') asRegex.
+	substitute := String streamContents: [ :str | 
+		              str << 'export \"package:' << newPkgName << '/' ].
+	res := String streamContents: [ :out | 
+		       aString readStreamDo: [ :stream | 
+			       newRegex
+				       copyStream: stream
+				       to: out
+				       replacingMatchesWith: substitute ] ].
+
+
+	"	newRegex := ('import ''package\:',initialPkgName,'/').
+	aString lines do: [ :line
+		
+		 ]"
+
+	^ res
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> changeExportSQDecl: aString From: initialPkgName to: newPkgName [
 
 	| newRegex res substitute |
 	newRegex := ('export ''package\:' , initialPkgName , '\/') asRegex.
@@ -80,7 +103,30 @@ FlutterDependenciesPackager >> changeExportDeclarationContent: aString From: ini
 ]
 
 { #category : #'as yet unclassified' }
-FlutterDependenciesPackager >> changeImportDeclarationContent: aString From: initialPkgName to: newPkgName [
+FlutterDependenciesPackager >> changeImportDQDecl: aString From: initialPkgName to: newPkgName [
+
+	| newRegex res substitute |
+	newRegex := ('import \"package\:' , initialPkgName , '\/') asRegex.
+	substitute := String streamContents: [ :str | 
+		              str << 'import \"package:' << newPkgName << '/' ].
+	res := String streamContents: [ :out | 
+		       aString readStreamDo: [ :stream | 
+			       newRegex
+				       copyStream: stream
+				       to: out
+				       replacingMatchesWith: substitute ] ].
+
+
+	"	newRegex := ('import ''package\:',initialPkgName,'/').
+	aString lines do: [ :line
+		
+		 ]"
+
+	^ res
+]
+
+{ #category : #'as yet unclassified' }
+FlutterDependenciesPackager >> changeImportSQDecl: aString From: initialPkgName to: newPkgName [
 	
 			| newRegex res substitute |
 	newRegex := ('import ''package\:',initialPkgName,'\/') asRegex.
@@ -130,12 +176,20 @@ FlutterDependenciesPackager >> modifyDartFilesOf: aFlutterPackage byReplacing: i
 		fileStream close.
 
 		content := self
-			           changeImportDeclarationContent: content
+			           changeImportSQDecl: content
+			           From: initialPkgName
+			           to: newPkgName.
+		content := self
+			           changeImportDQDecl: content
 			           From: initialPkgName
 			           to: newPkgName.
 
 		content := self
-			           changeExportDeclarationContent: content
+			           changeExportSQDecl: content
+			           From: initialPkgName
+			           to: newPkgName.
+		content := self
+			           changeExportDQDecl: content
 			           From: initialPkgName
 			           to: newPkgName.
 
