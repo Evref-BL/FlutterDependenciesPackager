@@ -62,7 +62,7 @@ FlutterDependenciesPackager >> changeExportDQDecl: aString From: initialPkgName 
 	| newRegex res substitute |
 	newRegex := ('export \"package\:' , initialPkgName , '\/') asRegex.
 	substitute := String streamContents: [ :str | 
-		              str << 'export \"package:' << newPkgName << '/' ].
+		              str << 'export "package:' << newPkgName << '/' ].
 	res := String streamContents: [ :out | 
 		       aString readStreamDo: [ :stream | 
 			       newRegex
@@ -108,7 +108,7 @@ FlutterDependenciesPackager >> changeImportDQDecl: aString From: initialPkgName 
 	| newRegex res substitute |
 	newRegex := ('import \"package\:' , initialPkgName , '\/') asRegex.
 	substitute := String streamContents: [ :str | 
-		              str << 'import \"package:' << newPkgName << '/' ].
+		              str << 'import "package:' << newPkgName << '/' ].
 	res := String streamContents: [ :out | 
 		       aString readStreamDo: [ :stream | 
 			       newRegex
